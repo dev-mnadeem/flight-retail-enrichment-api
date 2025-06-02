@@ -1,0 +1,43 @@
+[project]
+name = "flight-data-enrichment"
+version = "1.0.0"
+description = "Enrich flight itineraries with retail fares through a pluggable price provider"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # import order
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "C4",   # comprehensions
+  "DJ",   # Django
+  "SIM",  # simplify
+  "RET",  # return
+  "PLR",  # pylint refactor (magic values, too many args)
+]
+ignore = [
+  "B008",     # FastAPI's Depends()/Query() defaults are the documented style
+  "PLR0911",  # a classifier with one branch per status code reads better flat
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/flights/tests/*" = ["PLR2004"]   # literal expectations are the point of a test
+"api/tests/*" = ["PLR2004"]
+"api/main.py" = ["E402"]                  # django.setup() must precede model imports
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "backend.test_settings"
+# `backend` joins the path so that `flights` and `backend` import exactly as
+# they do under uvicorn and under a Celery worker.
+pythonpath = [".", "backend"]
+python_files = ["test_*.py"]
+testpaths = ["backend/flights/tests", "api/tests"]
+addopts = "-q --tb=short"
+filterwarnings = ["ignore::DeprecationWarning"]

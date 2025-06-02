@@ -1,0 +1,73 @@
+name: flight-enrichment
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Default to the offline provider so `docker compose up` works with no
+      # account. Swap to serpapi and add SERPAPI_KEY to price for real.
+      FLIGHT_PRICE_PROVIDER: ${FLIGHT_PRICE_PROVIDER:-fixture}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      FARE_REVIEWER: ${FARE_REVIEWER:-heuristic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key-set-SECRET_KEY-in-production}
+      DEBUG: ${DEBUG:-0}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - dbdata:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "python backend/manage.py migrate --noinput &&
+             uvicorn api.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build: .
+    environment:
+      FLIGHT_PRICE_PROVIDER: ${FLIGHT_PRICE_PROVIDER:-fixture}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      FARE_REVIEWER: ${FARE_REVIEWER:-heuristic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key-set-SECRET_KEY-in-production}
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - dbdata:/data
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    working_dir: /app/backend
+    command: ["celery", "-A", "backend", "worker", "--loglevel=info"]
+
+  web:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key-set-SECRET_KEY-in-production}
+      DEBUG: ${DEBUG:-0}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - dbdata:/data
+    depends_on:
+      api:
+        condition: service_started
+    working_dir: /app/backend
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8001"]
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dbdata:

@@ -1,0 +1,46 @@
+{
+  "_comment": "Deterministic fares used by FixturePriceProvider. economy_base is a one-way economy fare in `currency`; the provider applies the cabin and round-trip multipliers.",
+  "default_currency": "USD",
+  "routes": {
+    "JFK-ATH": {
+      "economy_base": 612.0,
+      "label": "New York JFK to Athens",
+      "currency": "USD"
+    },
+    "JFK-CAI": {
+      "economy_base": 548.0,
+      "label": "New York JFK to Cairo",
+      "currency": "USD"
+    },
+    "CAI-ATH": {
+      "economy_base": 198.0,
+      "label": "Cairo to Athens",
+      "currency": "USD"
+    },
+    "JFK-LAX": {
+      "economy_base": 214.0,
+      "label": "New York JFK to Los Angeles",
+      "currency": "USD"
+    },
+    "JFK-LHR": {
+      "economy_base": 431.0,
+      "label": "New York JFK to London Heathrow",
+      "currency": "USD"
+    },
+    "SFO-NRT": {
+      "economy_base": 703.0,
+      "label": "San Francisco to Tokyo Narita",
+      "currency": "USD"
+    },
+    "LHR-DXB": {
+      "economy_base": 389.0,
+      "label": "London Heathrow to Dubai",
+      "currency": "USD"
+    },
+    "ORD-CDG": {
+      "economy_base": 522.0,
+      "label": "Chicago to Paris CDG",
+      "currency": "USD"
+    }
+  }
+}

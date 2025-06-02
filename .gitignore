@@ -1,0 +1,40 @@
+# Virtualenvs
+fly/
+.venv/
+venv/
+project_venv/
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage/
+htmlcov/
+build/
+dist/
+*.egg-info/
+backend/staticfiles/
+
+# Local configuration and data
+.env
+.env.*
+!.env.example
+db.sqlite3
+*.sqlite3
+
+# Logs and scratch
+*.log
+logs/
+tmp/
+
+# Not tracked in this repository
+.github/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

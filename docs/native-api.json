@@ -1,0 +1,63 @@
+{
+  "mode": "Fixture fares and inline execution over real SQLite; no hosted provider",
+  "exchanges": [
+    {
+      "request": "GET /healthz",
+      "status": 200,
+      "response": {
+        "status": "ok",
+        "database": "ok",
+        "price_provider": "fixture",
+        "fare_reviewer": "heuristic",
+        "celery_eager": true
+      }
+    },
+    {
+      "request": "POST /enrich-flight",
+      "status": 202,
+      "response": {
+        "task_id": "f44d0f5c-517c-4e95-8c48-2b38f7d9a787",
+        "flight_id": "20250613-MS-MS986-MS747",
+        "status": "SUCCESS"
+      }
+    },
+    {
+      "request": "GET /task-status/f44d0f5c-517c-4e95-8c48-2b38f7d9a787",
+      "status": 200,
+      "response": {
+        "task_id": "f44d0f5c-517c-4e95-8c48-2b38f7d9a787",
+        "status": "SUCCESS",
+        "attempts": 1,
+        "created_at": "2026-10-28T15:45:28.411287Z",
+        "completed_at": "2026-10-28T15:45:28.445859Z",
+        "flight": {
+          "id": "20250613-MS-MS986-MS747",
+          "origin": "JFK",
+          "destination": "ATH",
+          "travel_class": "Business",
+          "departure_time": "2025-06-13T12:55:00+00:00",
+          "arrival_time": "2025-06-14T12:10:00+00:00",
+          "flight_numbers": [
+            "MS986",
+            "MS747"
+          ],
+          "leg_count": 2
+        },
+        "result": {
+          "flight_id": "20250613-MS-MS986-MS747",
+          "retail_price": "2570.40",
+          "currency": "USD",
+          "provider": "fixture",
+          "cache_hit": false,
+          "review": {
+            "rating": "plausible",
+            "rationale": "40.8 c/mi sits inside the 12-240 c/mi band for Business.",
+            "reviewer": "heuristic",
+            "cents_per_mile": 40.79
+          },
+          "warnings": []
+        }
+      }
+    }
+  ]
+}

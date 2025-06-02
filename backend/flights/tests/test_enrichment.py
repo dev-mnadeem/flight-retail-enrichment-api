@@ -19,6 +19,38 @@ from .conftest import make_flight
 
 pytestmark = pytest.mark.django_db
 
+#: JFK to Athens through Cairo, a week in Athens, then home through Cairo.
+ROUND_TRIP_LEGS = [
+    {
+        "origin": "JFK",
+        "destination": "CAI",
+        "departure_time": "2025-06-13T12:55:00+00:00",
+        "arrival_time": "2025-06-14T06:15:00+00:00",
+        "distance": 5614,
+    },
+    {
+        "origin": "CAI",
+        "destination": "ATH",
+        "departure_time": "2025-06-14T10:10:00+00:00",
+        "arrival_time": "2025-06-14T12:10:00+00:00",
+        "distance": 688,
+    },
+    {
+        "origin": "ATH",
+        "destination": "CAI",
+        "departure_time": "2025-06-20T09:00:00+00:00",
+        "arrival_time": "2025-06-20T11:00:00+00:00",
+        "distance": 688,
+    },
+    {
+        "origin": "CAI",
+        "destination": "JFK",
+        "departure_time": "2025-06-20T15:30:00",
+        "arrival_time": "2025-06-21T03:00:00",
+        "distance": 5614,
+    },
+]
+
 
 class CountingProvider(PriceProvider):
     """Records every call so a test can assert the cache actually saved one."""
@@ -54,10 +86,39 @@ class TestBuildQuery:
         assert query.return_date is None
 
     def test_a_returning_itinerary_is_priced_round_trip(self, db):
-        flight = make_flight(flight_id="rt", origin="JFK", destination="JFK")
+        flight = make_flight(flight_id="rt", origin="JFK", destination="JFK", legs=ROUND_TRIP_LEGS)
         query = build_query(flight)
         assert query.trip_type is TripType.ROUND_TRIP
-        assert query.return_date == date(2025, 6, 14)
+        assert query.return_date == date(2025, 6, 20)
+
+    def test_a_round_trip_is_searched_to_where_the_passenger_stays(self, db):
+        # Sending JFK-JFK asks the provider for a flight that goes nowhere.
+        # The stay is the longest time on the ground, not the Cairo connection.
+        flight = make_flight(flight_id="rt", origin="JFK", destination="JFK", legs=ROUND_TRIP_LEGS)
+        query = build_query(flight)
+        assert (query.origin, query.destination) == ("JFK", "ATH")
+
+    def test_a_round_trip_without_leg_times_fails_permanently(self, db):
+        legs = [{"origin": "JFK", "destination": "ATH"}, {"origin": "ATH", "destination": "JFK"}]
+        flight = make_flight(flight_id="rt-untimed", origin="JFK", destination="JFK", legs=legs)
+        with pytest.raises(PermanentPricingError, match="without times"):
+            build_query(flight)
+
+    def test_a_round_trip_with_a_single_leg_fails_permanently(self, db):
+        flight = make_flight(
+            flight_id="rt-one-leg",
+            origin="JFK",
+            destination="JFK",
+            legs=[{"origin": "JFK", "destination": "JFK"}],
+        )
+        with pytest.raises(PermanentPricingError, match="at least two legs"):
+            build_query(flight)
+
+    def test_a_round_trip_is_priced_by_the_fixture(self, db):
+        flight = make_flight(flight_id="rt", origin="JFK", destination="JFK", legs=ROUND_TRIP_LEGS)
+        outcome = EnrichmentService().enrich(flight)
+        # 612.00 economy base x 4.20 business x 1.80 round trip.
+        assert outcome.quote.amount == Decimal("4626.72")
 
     def test_the_cabin_is_carried_through(self, flight):
         assert build_query(flight).cabin is CabinClass.BUSINESS

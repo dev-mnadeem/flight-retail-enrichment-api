@@ -9,7 +9,7 @@ with no broker running.
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import UTC, date, datetime
 
 from django.db import transaction
 from django.utils import timezone
@@ -17,7 +17,7 @@ from django.utils import timezone
 from ..dto import EnrichmentOutcome, PriceQuery
 from ..enums import TripType
 from ..models import Flight
-from ..providers import PriceProvider, PriceUnavailable, get_provider
+from ..providers import PermanentPricingError, PriceProvider, PriceUnavailable, get_provider
 from ..review import FareReviewer, get_reviewer
 from .quotes import QuoteCache
 
@@ -33,20 +33,77 @@ def build_query(flight: Flight, currency: str = "USD") -> PriceQuery:
     journey home that nobody asked for. And the cabin has to be sent: a
     provider given no cabin quotes economy, so a business itinerary comes
     back at roughly a quarter of its real fare and looks entirely valid.
-    """
-    outbound: date = timezone.localtime(flight.departure_time).date()
-    arrival: date = timezone.localtime(flight.arrival_time).date()
-    is_round_trip = flight.origin.upper() == flight.destination.upper()
 
+    A round trip's top-level origin and destination are the same airport, so
+    the place the passenger is actually flying to has to come from the legs.
+    """
+    origin = flight.origin.upper()
+    outbound = timezone.localtime(flight.departure_time).date()
+
+    if origin != flight.destination.upper():
+        return PriceQuery(
+            origin=origin,
+            destination=flight.destination.upper(),
+            outbound_date=outbound,
+            cabin=flight.cabin,
+            trip_type=TripType.ONE_WAY,
+            currency=currency,
+        )
+
+    destination, return_date = _turnaround(flight)
     return PriceQuery(
-        origin=flight.origin.upper(),
-        destination=flight.destination.upper(),
+        origin=origin,
+        destination=destination,
         outbound_date=outbound,
         cabin=flight.cabin,
-        trip_type=TripType.ROUND_TRIP if is_round_trip else TripType.ONE_WAY,
+        trip_type=TripType.ROUND_TRIP,
         currency=currency,
-        return_date=arrival if is_round_trip else None,
+        return_date=return_date,
     )
+
+
+def _turnaround(flight: Flight) -> tuple[str, date]:
+    """Where a round trip turns back, and the date the return leg departs.
+
+    The stay at the destination is the longest time on the ground between
+    two consecutive legs; a connection is hours, a stay is days. Without
+    leg times there is no way to tell the two apart, and guessing would
+    send the provider a search for the wrong city.
+    """
+    legs = [leg for leg in flight.legs or [] if isinstance(leg, dict)]
+    if len(legs) < _MIN_ROUND_TRIP_LEGS:
+        raise PermanentPricingError(
+            f"Round trip {flight.flight_id} needs at least two legs to find its destination"
+        )
+
+    ground_times = []
+    for arriving, departing in zip(legs, legs[1:], strict=False):
+        landed = _parse_leg_time(arriving.get("arrival_time"))
+        leaves = _parse_leg_time(departing.get("departure_time"))
+        if landed is None or leaves is None:
+            raise PermanentPricingError(
+                f"Round trip {flight.flight_id} has legs without times, "
+                "so its destination cannot be told apart from a connection"
+            )
+        ground_times.append((leaves - landed, arriving, leaves))
+
+    _, stay_leg, return_departure = max(ground_times, key=lambda item: item[0])
+    return str(stay_leg["destination"]).upper(), timezone.localtime(return_departure).date()
+
+
+_MIN_ROUND_TRIP_LEGS = 2
+
+
+def _parse_leg_time(raw: object) -> datetime | None:
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, UTC)
+    return parsed
 
 
 class EnrichmentService:

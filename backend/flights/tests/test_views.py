@@ -54,6 +54,16 @@ class TestFlightListView:
         # A bare ?page=2 would drop the filters and page through every flight.
         assert b'href="?origin=JFK&amp;cabin=Business&amp;page=2"' in response.content
 
+    def test_every_filter_has_a_label(self, client):
+        content = client.get(reverse("flights:flight-list")).content
+        for field in ("origin", "destination", "cabin", "enriched"):
+            assert f'<label for="f-{field}">'.encode() in content
+            assert f'id="f-{field}"'.encode() in content
+
+    def test_marks_the_current_section_in_the_nav(self, client):
+        content = client.get(reverse("flights:flight-list")).content
+        assert b'/flights/" aria-current="page">Flights</a>' in content
+
     def test_no_match_says_so(self, client, flight):
         response = client.get(reverse("flights:flight-list"), {"origin": "ZZZ"})
         assert b"No flights match those filters." in response.content

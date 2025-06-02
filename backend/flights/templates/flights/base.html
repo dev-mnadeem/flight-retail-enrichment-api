@@ -3,104 +3,178 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Flight enrichment{% endblock %}</title>
+  <title>{% block title %}Flight enrichment{% endblock %} · Flight data enrichment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
   <style>
     :root {
-      --bg: #f6f7f9;
-      --surface: #ffffff;
-      --ink: #16202c;
-      --muted: #5f6b7a;
-      --line: #dfe4ea;
-      --accent: #1f5fd8;
-      --ok-bg: #e4f4ea; --ok-ink: #17603a;
-      --bad-bg: #fbe6e6; --bad-ink: #8c2020;
-      --warn-bg: #fdf2dc; --warn-ink: #7a5310;
-      --radius: 8px;
+      --paper: #f3efe6;
+      --surface: #fffdf8;
+      --ink: #1b2422;
+      --muted: #545d5a;
+      --line: #ddd6c8;
+      --board: #17201e;
+      --board-ink: #e9e4d8;
+      --signal: #f2b134;
+      --accent: #0f5c4d;
+      --accent-hover: #0a473b;
+      --ok-bg: #dcefe4; --ok-ink: #145233;
+      --bad-bg: #f8e0dc; --bad-ink: #8a2418;
+      --warn-bg: #fbecc8; --warn-ink: #6b4a06;
+      --idle-bg: #ebe6db; --idle-ink: #4c5552;
+      --radius: 6px;
+      --sans: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --display: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: var(--bg);
+      background: var(--paper);
       color: var(--ink);
-      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font: 16px/1.5 var(--sans);
     }
+    a { color: var(--accent); }
+    :focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+    .skip {
+      position: absolute; left: 12px; top: -48px; padding: 8px 12px;
+      background: var(--signal); color: var(--board); font-weight: 600; z-index: 10;
+    }
+    .skip:focus { top: 12px; }
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
     header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-      padding: 18px 32px;
+      background: var(--board);
+      color: var(--board-ink);
+      padding: 0 32px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 40px;
     }
-    header .brand { font-weight: 650; letter-spacing: -0.01em; }
-    nav { margin-top: 10px; display: flex; gap: 20px; }
+    .brand {
+      font: 700 19px/1 var(--display);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 20px 0; display: flex; align-items: center; gap: 10px;
+    }
+    .brand::before {
+      content: ""; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--signal); box-shadow: 0 0 0 3px rgba(242, 177, 52, 0.25);
+    }
+    nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 28px; }
     nav a {
-      color: var(--muted); text-decoration: none; font-size: 14px;
-      padding-bottom: 6px; border-bottom: 2px solid transparent;
+      display: block; padding: 20px 0 17px;
+      color: var(--board-ink); text-decoration: none; font-weight: 500;
+      border-bottom: 3px solid transparent;
     }
-    nav a:hover { color: var(--ink); }
-    nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
-    main { padding: 28px 32px 56px; max-width: 1180px; }
-    h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
-    .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    nav a:hover { color: #fff; }
+    nav a[aria-current="page"] { color: #fff; border-bottom-color: var(--signal); }
+
+    main { padding: 32px 32px 64px; max-width: 1200px; }
+    h1 { font: 700 30px/1.15 var(--display); margin: 0 0 6px; letter-spacing: 0.01em; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; }
+
     .panel {
       background: var(--surface); border: 1px solid var(--line);
       border-radius: var(--radius); overflow: hidden;
     }
     .filters {
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
-      padding: 16px; border-bottom: 1px solid var(--line); background: var(--surface);
+      display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
+      padding: 18px; border-bottom: 1px solid var(--line);
     }
-    .filters label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
-    .filters input, .filters select {
-      font: inherit; font-size: 14px; padding: 7px 9px;
-      border: 1px solid var(--line); border-radius: 6px; background: #fff; min-width: 140px;
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .field input, .field select {
+      font: inherit; font-size: 15px; padding: 8px 10px; min-width: 140px;
+      border: 1px solid #b9b1a2; border-radius: var(--radius); background: #fff; color: var(--ink);
     }
-    .filters button, .filters a.reset {
-      font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px;
+    .field input { font-family: var(--mono); text-transform: uppercase; }
+    .field input::placeholder { text-transform: none; font-family: var(--sans); color: #77807c; }
+    .actions { display: flex; gap: 10px; }
+    .button, .button-quiet {
+      font: 600 15px/1 var(--sans); padding: 11px 18px; border-radius: var(--radius);
       border: 1px solid transparent; cursor: pointer; text-decoration: none;
     }
-    .filters button { background: var(--accent); color: #fff; }
-    .filters a.reset { background: transparent; color: var(--muted); border-color: var(--line); }
+    .button { background: var(--accent); color: #fff; }
+    .button:hover { background: var(--accent-hover); }
+    .button-quiet { background: transparent; color: var(--ink); border-color: #b9b1a2; }
+
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+    th, td { padding: 12px 18px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
     th {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
-      color: var(--muted); font-weight: 600; background: #fafbfc;
+      font: 600 12px/1.2 var(--sans); text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); background: #f8f4ec;
     }
     tbody tr:last-child td { border-bottom: none; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    td.mono, .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 13px; white-space: nowrap;
-    }
+    tbody tr:hover { background: #faf6ee; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .code { font-family: var(--mono); font-size: 14px; }
+    .route { font-family: var(--mono); font-weight: 500; letter-spacing: 0.04em; white-space: nowrap; }
+    .route span { color: var(--muted); padding: 0 4px; }
+    .price { font-family: var(--mono); font-weight: 500; white-space: nowrap; }
+    .price small { color: var(--muted); font-size: 12px; margin-left: 3px; }
+    .none { color: var(--muted); }
+
     .pill {
-      display: inline-block; padding: 2px 9px; border-radius: 999px;
-      font-size: 12px; font-weight: 600;
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font: 600 12px/1.4 var(--sans); letter-spacing: 0.03em; white-space: nowrap;
     }
     .pill-ok { background: var(--ok-bg); color: var(--ok-ink); }
     .pill-bad { background: var(--bad-bg); color: var(--bad-ink); }
     .pill-warn { background: var(--warn-bg); color: var(--warn-ink); }
-    .pill-idle { background: #eceff3; color: var(--muted); }
-    .empty { padding: 52px 20px; text-align: center; color: var(--muted); }
-    .empty strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 6px; }
+    .pill-idle { background: var(--idle-bg); color: var(--idle-ink); }
+
+    .empty { padding: 56px 24px; text-align: center; color: var(--muted); }
+    .empty strong { display: block; color: var(--ink); font: 700 20px/1.3 var(--display); margin-bottom: 6px; }
     .empty code {
-      display: inline-block; margin-top: 12px; padding: 7px 11px;
-      background: #f1f3f6; border-radius: 6px; font-size: 13px;
+      display: inline-block; margin-top: 14px; padding: 8px 12px; max-width: 100%;
+      background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+      font: 13px/1.5 var(--mono); color: var(--ink); white-space: pre-wrap; word-break: break-all;
     }
     .pager {
-      display: flex; gap: 14px; align-items: center;
-      padding: 14px 16px; font-size: 14px; color: var(--muted);
+      display: flex; gap: 18px; align-items: center; margin: 0;
+      padding: 14px 18px; font-size: 15px; color: var(--muted); border-top: 1px solid var(--line);
     }
-    .pager a { color: var(--accent); text-decoration: none; }
-    .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+    .pager a { font-weight: 600; }
+
+    @media (max-width: 760px) {
+      header { padding: 0 16px; gap: 0 24px; }
+      .brand { padding: 16px 0 6px; width: 100%; }
+      nav a { padding: 10px 0 11px; }
+      main { padding: 24px 16px 48px; }
+      h1 { font-size: 26px; }
+      .filters { padding: 16px; }
+      .field { flex: 1 1 140px; }
+      .field input, .field select { min-width: 0; width: 100%; }
+      .actions { width: 100%; }
+      .actions .button { flex: 1; }
+
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody tr { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+      tbody tr:last-child { border-bottom: none; }
+      td { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border: none; text-align: right; }
+      td.num { text-align: right; }
+      td::before {
+        content: attr(data-label); flex: none; text-align: left;
+        font: 600 12px/1.9 var(--sans); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+      }
+      td.code { word-break: break-all; }
+    }
   </style>
 </head>
 <body>
+  <a class="skip" href="#content">Skip to content</a>
   <header>
     <div class="brand">Flight data enrichment</div>
-    <nav>
-      <a href="{% url 'flights:flight-list' %}" class="{% block nav_flights %}{% endblock %}">Flights</a>
-      <a href="{% url 'flights:task-list' %}" class="{% block nav_tasks %}{% endblock %}">Task queue</a>
+    <nav aria-label="Sections">
+      <ul>
+        <li><a href="{% url 'flights:flight-list' %}"{% block nav_flights %}{% endblock %}>Flights</a></li>
+        <li><a href="{% url 'flights:task-list' %}"{% block nav_tasks %}{% endblock %}>Task queue</a></li>
+      </ul>
     </nav>
   </header>
-  <main>{% block content %}{% endblock %}</main>
+  <main id="content">{% block content %}{% endblock %}</main>
 </body>
 </html>

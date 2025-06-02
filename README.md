@@ -12,10 +12,34 @@ exercise, not a production pricing platform.
 The one thing it does that the brief did not ask for is put the price lookup behind an
 interface. SerpAPI is metered and needs an account, and a project nobody can run is a
 project nobody will read — so the default provider serves deterministic fares from a
-checked-in JSON file, and `git clone` to a working `/enrich-flight` call is four commands
-and no credentials.
+checked-in JSON file, and `git clone` to a working `/enrich-flight` call needs no
+credentials.
 
 ## Try it
+
+The whole stack — API, Celery worker, Redis and the Django pages — comes up with one
+command:
+
+```bash
+docker compose up --build
+```
+
+The API is on `localhost:8000` (OpenAPI page at `/docs`), the Django pages on
+`localhost:8001/flights/`. Submit the sample payload from the exercise brief:
+
+```bash
+curl -s -X POST localhost:8000/enrich-flight \
+  -H 'content-type: application/json' -d @sample_flight.json
+```
+
+Under Compose the task goes to the worker through Redis, so the reply says `PENDING`
+and `GET /task-status/{task_id}` turns `SUCCESS` a moment later. The captured exchanges
+are [further down](#captured-requests-and-responses).
+
+### Without Docker
+
+Python 3.12 (see `.python-version`). With no `CELERY_BROKER_URL` set the task runs inline
+in the API process, so nothing else needs to be running:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -24,7 +48,7 @@ python backend/manage.py migrate
 uvicorn api.main:app --port 8000
 ```
 
-Then, with the sample payload from the exercise brief:
+Then, with the same payload:
 
 ```bash
 curl -s -X POST localhost:8000/enrich-flight \
@@ -79,12 +103,12 @@ flowchart TD
     C --> D["Create EnrichmentTask<br/>status PENDING"]
     D --> E{"Broker configured?"}
     E -->|"no"| F["Run inline"]
-    E -->|"yes"| G["Queue for a Celery worker"]
+    E -->|"yes"| G["Queue for a Celery worker<br/>503 if Redis is unreachable"]
     F --> H["Build PriceQuery"]
     G --> H
 
     H --> I{"One-way or return?"}
-    I -->|"origin equals destination"| J["Round trip, send return_date"]
+    I -->|"origin equals destination"| J["Round trip: destination is the longest stay<br/>return_date is when the next leg leaves"]
     I -->|"otherwise"| K["One way, no return_date"]
     J --> L["Look up the quote cache<br/>by query fingerprint"]
     K --> L
@@ -114,7 +138,11 @@ pipeline quietly returns a number that is *wrong* rather than a number that is m
 one-way search with no return date — sending the arrival date as a return date prices a
 journey home nobody asked for, and the answer looks entirely valid. `build_query` in
 `backend/flights/services/enrichment.py` decides this from whether origin and destination
-match.
+match. The reverse case has its own trap: a round trip's top-level origin and destination
+are the *same* airport, so searching them as given asks for JFK→JFK. The searched
+destination is the stop with the longest time on the ground — a connection is hours, a
+stay is days — and the return date is when the next leg leaves. A round trip whose legs
+carry no times fails as a permanent error rather than being guessed.
 
 **The cabin has to be sent.** Google Flights defaults to economy when `travel_class` is
 omitted, so a business itinerary comes back at roughly a quarter of its fare with no
@@ -218,17 +246,27 @@ must never cost you the price you already paid to fetch.
 
 ## The two pages
 
+Server-rendered Django, no JavaScript. Below 760px wide the tables fold into labelled
+rows rather than scrolling sideways.
+
 `/flights/` — every submitted itinerary, key columns only, filterable by route, cabin and
-enrichment state, paginated at 25.
+enrichment state, paginated at 25 with the filters kept across pages.
 
 ![The flight table](docs/screenshots/flight-list.png)
 
-`/flights/tasks/` — the last three completed enrichment tasks and how each one ended.
+`/flights/tasks/` — the last three completed enrichment tasks and how each one ended. The
+failed row is a simulated SerpAPI rate limit, there to show the give-up path.
 
 ![The task queue](docs/screenshots/task-queue.png)
 
-Run them with `python backend/manage.py runserver` against the same SQLite file the API
-writes to. The FastAPI side publishes its own OpenAPI page at `/docs`.
+<p>
+  <img src="docs/screenshots/flight-list-mobile.png" alt="The flight table at phone width" width="260">
+  <img src="docs/screenshots/task-queue-mobile.png" alt="The task queue at phone width" width="260">
+</p>
+
+Outside Compose, run them with `cd backend && python manage.py runserver 8001` against the
+same SQLite file the API writes to. The screenshots use the fixture provider and demo
+itineraries only.
 
 ## The schema
 
@@ -277,7 +315,7 @@ worker does the pricing.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest          # 117 tests
+pytest          # 126 tests
 ruff check . && ruff format --check .
 ```
 
@@ -299,8 +337,9 @@ Redis. All three Python services share one SQLite file on a named volume — the
 limitation of keeping SQLite, and the reason this compose file is a demonstration rather
 than a deployment. The image is multi-stage and runs as a non-root user.
 
-`docker compose config` parses. The image has not been built or booted here — Docker was
-unavailable on the machine this was last worked on.
+The stack was last brought up from a clean checkout with exactly that command, and the
+exchanges below were captured from it. Pass `FLIGHT_PRICE_PROVIDER=serpapi` and
+`SERPAPI_KEY` in the environment to price against Google Flights instead of the fixture.
 
 ## What I would fix before this saw real traffic
 
@@ -318,13 +357,105 @@ unavailable on the machine this was last worked on.
   chosen so the pipeline is demonstrable and the tests can assert exact numbers. They are
   not market data.
 
+## Captured requests and responses
 
-## Verified native enrichment example
+Taken from the Compose stack with the sample payload — so the submit answers `PENDING`
+and the worker finishes the job about a second later. The full set is in
+[`docs/api-examples.json`](docs/api-examples.json).
 
-![Native itinerary enrichment responses](docs/screenshots/native-api.png)
+`POST /enrich-flight` with `sample_flight.json` → `202 Accepted`
 
-The [captured responses](docs/native-api.json) show a submitted itinerary and its
-successful stored task result in a disposable SQLite database. Pricing uses the
-bundled fixture and the heuristic reviewer; execution is inline, with no Redis
-broker or paid provider. This verifies the default local path. Hosted pricing
-and multi-process Celery execution remain separate deployment checks.
+```json
+{
+  "task_id": "69472f9a-1f07-49ca-b143-6b0beec19cd9",
+  "flight_id": "20250613-MS-MS986-MS747",
+  "status": "PENDING"
+}
+```
+
+`GET /task-status/69472f9a-1f07-49ca-b143-6b0beec19cd9` → `200 OK`
+
+```json
+{
+  "task_id": "69472f9a-1f07-49ca-b143-6b0beec19cd9",
+  "status": "SUCCESS",
+  "attempts": 1,
+  "created_at": "2026-11-08T05:33:39.089171Z",
+  "completed_at": "2026-11-08T05:33:39.860632Z",
+  "flight": {
+    "id": "20250613-MS-MS986-MS747",
+    "origin": "JFK",
+    "destination": "ATH",
+    "travel_class": "Business",
+    "departure_time": "2025-06-13T12:55:00+00:00",
+    "arrival_time": "2025-06-14T12:10:00+00:00",
+    "flight_numbers": [
+      "MS986",
+      "MS747"
+    ],
+    "leg_count": 2
+  },
+  "result": {
+    "flight_id": "20250613-MS-MS986-MS747",
+    "retail_price": "2570.40",
+    "currency": "USD",
+    "provider": "fixture",
+    "cache_hit": false,
+    "review": {
+      "rating": "plausible",
+      "rationale": "40.8 c/mi sits inside the 12-240 c/mi band for Business.",
+      "reviewer": "heuristic",
+      "cents_per_mile": 40.79
+    },
+    "warnings": []
+  }
+}
+```
+
+`GET /flights?origin=JFK&limit=5` → `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "20250613-MS-MS986-MS747",
+      "origin": "JFK",
+      "destination": "ATH",
+      "travel_class": "Business",
+      "departure_time": "2025-06-13T12:55:00Z",
+      "arrival_time": "2025-06-14T12:10:00Z",
+      "retail_price": "2570.40",
+      "currency": "USD",
+      "price_provider": "fixture",
+      "enriched": true,
+      "fare_review": {
+        "rating": "plausible",
+        "rationale": "40.8 c/mi sits inside the 12-240 c/mi band for Business.",
+        "reviewer": "heuristic",
+        "cents_per_mile": 40.79
+      }
+    }
+  ],
+  "total": 1,
+  "limit": 5,
+  "offset": 0
+}
+```
+
+`GET /task-status/not-a-real-task` → `404 Not Found`
+
+```json
+{"detail": "Task not found"}
+```
+
+`GET /healthz` → `200 OK` — `celery_eager` is `false` because a broker is configured.
+
+```json
+{
+  "status": "ok",
+  "database": "ok",
+  "price_provider": "fixture",
+  "fare_reviewer": "heuristic",
+  "celery_eager": false
+}
+```

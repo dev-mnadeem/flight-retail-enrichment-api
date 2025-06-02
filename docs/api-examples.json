@@ -1,0 +1,99 @@
+{
+  "captured_with": "docker compose up --build: API, Celery worker and Redis; fixture provider, heuristic reviewer",
+  "exchanges": [
+    {
+      "request": "GET /healthz",
+      "status": 200,
+      "response": {
+        "status": "ok",
+        "database": "ok",
+        "price_provider": "fixture",
+        "fare_reviewer": "heuristic",
+        "celery_eager": false
+      }
+    },
+    {
+      "request": "POST /enrich-flight",
+      "status": 202,
+      "response": {
+        "task_id": "69472f9a-1f07-49ca-b143-6b0beec19cd9",
+        "flight_id": "20250613-MS-MS986-MS747",
+        "status": "PENDING"
+      }
+    },
+    {
+      "request": "GET /task-status/69472f9a-1f07-49ca-b143-6b0beec19cd9",
+      "status": 200,
+      "response": {
+        "task_id": "69472f9a-1f07-49ca-b143-6b0beec19cd9",
+        "status": "SUCCESS",
+        "attempts": 1,
+        "created_at": "2026-11-08T05:33:39.089171Z",
+        "completed_at": "2026-11-08T05:33:39.860632Z",
+        "flight": {
+          "id": "20250613-MS-MS986-MS747",
+          "origin": "JFK",
+          "destination": "ATH",
+          "travel_class": "Business",
+          "departure_time": "2025-06-13T12:55:00+00:00",
+          "arrival_time": "2025-06-14T12:10:00+00:00",
+          "flight_numbers": [
+            "MS986",
+            "MS747"
+          ],
+          "leg_count": 2
+        },
+        "result": {
+          "flight_id": "20250613-MS-MS986-MS747",
+          "retail_price": "2570.40",
+          "currency": "USD",
+          "provider": "fixture",
+          "cache_hit": false,
+          "review": {
+            "rating": "plausible",
+            "rationale": "40.8 c/mi sits inside the 12-240 c/mi band for Business.",
+            "reviewer": "heuristic",
+            "cents_per_mile": 40.79
+          },
+          "warnings": []
+        }
+      }
+    },
+    {
+      "request": "GET /flights?origin=JFK&limit=5",
+      "status": 200,
+      "response": {
+        "items": [
+          {
+            "id": "20250613-MS-MS986-MS747",
+            "origin": "JFK",
+            "destination": "ATH",
+            "travel_class": "Business",
+            "departure_time": "2025-06-13T12:55:00Z",
+            "arrival_time": "2025-06-14T12:10:00Z",
+            "retail_price": "2570.40",
+            "currency": "USD",
+            "price_provider": "fixture",
+            "enriched": true,
+            "fare_review": {
+              "rating": "plausible",
+              "rationale": "40.8 c/mi sits inside the 12-240 c/mi band for Business.",
+              "reviewer": "heuristic",
+              "cents_per_mile": 40.79
+            }
+          }
+        ],
+        "total": 1,
+        "limit": 5,
+        "offset": 0
+      }
+    },
+    {
+      "request": "GET /task-status/not-a-real-task",
+      "status": 404,
+      "response": {
+        "detail": "Task not found"
+      }
+    }
+  ]
+}

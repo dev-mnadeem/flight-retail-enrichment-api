@@ -1,5 +1,7 @@
 -r requirements.txt
 
-pytest==9.1.1
+pytest==9.2.0
 pytest-django==4.14.0
-ruff==0.16.9
+ruff==0.17.4
+# Starlette's TestClient runs on httpx2; plain httpx is deprecated there.
+httpx2==2.16.0

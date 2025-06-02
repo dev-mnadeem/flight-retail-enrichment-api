@@ -62,7 +62,7 @@ services:
     command: ["python", "manage.py", "runserver", "0.0.0.0:8001"]
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

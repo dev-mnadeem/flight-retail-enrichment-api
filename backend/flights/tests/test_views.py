@@ -45,6 +45,15 @@ class TestFlightListView:
         second = client.get(reverse("flights:flight-list"), {"page": 2})
         assert len(second.context["flights"]) == 3
 
+    def test_page_links_keep_the_active_filters(self, client, db):
+        for index in range(FLIGHTS_PER_PAGE + 1):
+            make_flight(flight_id=f"jfk-{index:03d}", origin="JFK")
+        response = client.get(
+            reverse("flights:flight-list"), {"origin": "JFK", "cabin": "Business"}
+        )
+        # A bare ?page=2 would drop the filters and page through every flight.
+        assert b'href="?origin=JFK&amp;cabin=Business&amp;page=2"' in response.content
+
     def test_no_match_says_so(self, client, flight):
         response = client.get(reverse("flights:flight-list"), {"origin": "ZZZ"})
         assert b"No flights match those filters." in response.content

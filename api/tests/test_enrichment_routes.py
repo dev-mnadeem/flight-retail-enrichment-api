@@ -39,6 +39,20 @@ class TestEnrichFlight:
         assert Flight.objects.count() == 1
         assert Flight.objects.get().travel_class == "Economy"
 
+    def test_an_unreachable_broker_is_a_503(self, client, sample_flight, settings, monkeypatch):
+        from flights.tasks import enrich_flight_task
+        from kombu.exceptions import OperationalError
+
+        settings.CELERY_TASK_ALWAYS_EAGER = False
+
+        def refuse(*args, **kwargs):
+            raise OperationalError("Connection refused")
+
+        monkeypatch.setattr(enrich_flight_task, "apply_async", refuse)
+        response = client.post("/enrich-flight", json=sample_flight)
+        assert response.status_code == 503
+        assert "not queued" in response.json()["detail"]
+
 
 class TestTaskStatus:
     def test_unknown_task_is_a_404(self, client):

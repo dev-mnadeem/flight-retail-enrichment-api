@@ -1,11 +1,12 @@
 from decimal import Decimal
 
 import pytest
+from kombu.exceptions import OperationalError
 
 from flights.enums import TaskStatus
 from flights.models import EnrichmentTask
 from flights.providers.base import PermanentPricingError, TransientPricingError
-from flights.tasks import MAX_RETRIES, enqueue, enrich_flight_task
+from flights.tasks import MAX_RETRIES, BrokerUnavailable, enqueue, enrich_flight_task
 
 pytestmark = pytest.mark.django_db
 
@@ -22,6 +23,22 @@ class TestEnqueue:
 
     def test_records_one_attempt_on_a_clean_run(self, flight):
         assert enqueue(flight).attempts == 1
+
+    def test_an_unreachable_broker_fails_the_row_instead_of_leaving_it_pending(
+        self, flight, settings, monkeypatch
+    ):
+        settings.CELERY_TASK_ALWAYS_EAGER = False
+
+        def refuse(*args, **kwargs):
+            raise OperationalError("Error 111 connecting to redis:6379. Connection refused.")
+
+        monkeypatch.setattr(enrich_flight_task, "apply_async", refuse)
+        with pytest.raises(BrokerUnavailable):
+            enqueue(flight)
+
+        task = EnrichmentTask.objects.get(flight=flight)
+        assert task.status == TaskStatus.FAILURE
+        assert "broker unavailable" in task.result["error"]
 
 
 class TestEnrichFlightTask:

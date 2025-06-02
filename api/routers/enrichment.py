@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 from flights.models import EnrichmentTask
-from flights.tasks import enqueue
+from flights.tasks import BrokerUnavailable, enqueue
 
 from api.schemas import (
     BatchAccepted,
@@ -26,7 +26,12 @@ router = APIRouter(tags=["enrichment"])
 def enrich_flight(payload: FlightData) -> TaskAccepted:
     """Store one itinerary and queue it for pricing."""
     flight = save_flight(payload)
-    task = enqueue(flight)
+    try:
+        task = enqueue(flight)
+    except BrokerUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     return TaskAccepted(task_id=task.task_id, flight_id=flight.flight_id, status=task.status)
 
 

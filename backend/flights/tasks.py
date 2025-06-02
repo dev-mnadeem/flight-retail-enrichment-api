@@ -7,10 +7,12 @@ exercised without a broker.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from celery import shared_task
 from django.conf import settings
+from kombu.exceptions import OperationalError
 
 from .enums import TaskStatus
 from .models import EnrichmentTask, Flight
@@ -92,20 +94,29 @@ def _fail(task: EnrichmentTask | None, message: str) -> None:
         task.mark(TaskStatus.FAILURE, {"error": message})
 
 
+class BrokerUnavailable(RuntimeError):
+    """The task row exists but the work could not be handed to the broker."""
+
+
 def enqueue(flight: Flight) -> EnrichmentTask:
     """Create the tracking row and queue the work for one flight.
 
-    Callers get a row back whatever the broker does. With
-    ``CELERY_TASK_ALWAYS_EAGER`` set -- the default when no broker URL is
-    configured -- the task has already run by the time this returns.
+    With ``CELERY_TASK_ALWAYS_EAGER`` set -- the default when no broker URL
+    is configured -- the task has already run by the time this returns.
+    When the broker cannot be reached the row is marked failed before
+    ``BrokerUnavailable`` is raised, so it never sits at PENDING for a
+    worker that will never see it.
     """
-    import uuid
-
     task_id = str(uuid.uuid4())
     task = EnrichmentTask.objects.create(task_id=task_id, flight=flight, status=TaskStatus.PENDING)
     if settings.CELERY_TASK_ALWAYS_EAGER:
         enrich_flight_task.apply(args=[flight.flight_id], task_id=task_id)
     else:
-        enrich_flight_task.apply_async(args=[flight.flight_id], task_id=task_id)
+        try:
+            enrich_flight_task.apply_async(args=[flight.flight_id], task_id=task_id)
+        except OperationalError as exc:
+            logger.error("Could not queue %s: %s", flight.flight_id, exc)
+            _fail(task, f"Task broker unavailable: {exc}")
+            raise BrokerUnavailable(f"Task broker unavailable, task {task_id} not queued") from exc
     task.refresh_from_db()
     return task

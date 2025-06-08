@@ -1,0 +1,62 @@
+{% extends "flights/base.html" %}
+{% block title %}Task queue{% endblock %}
+{% block nav_tasks %}active{% endblock %}
+
+{% block content %}
+<h1>Task queue</h1>
+<p class="subtitle">
+  The last {{ shown }} completed enrichment task{{ shown|pluralize }} and how each ended.
+</p>
+
+<div class="panel">
+  {% if tasks %}
+  <table>
+    <thead>
+      <tr>
+        <th>Task ID</th>
+        <th>Flight</th>
+        <th>Result</th>
+        <th style="text-align:right">Attempts</th>
+        <th>Completed (UTC)</th>
+        <th>Detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td class="mono">{{ task.task_id }}</td>
+        <td class="mono">{{ task.flight.flight_id }}</td>
+        <td>
+          {% if task.status == "SUCCESS" %}
+            <span class="pill pill-ok">SUCCESS</span>
+          {% else %}
+            <span class="pill pill-bad">{{ task.status }}</span>
+          {% endif %}
+        </td>
+        <td class="num">{{ task.attempts }}</td>
+        <td>{{ task.completed_at|date:"Y-m-d H:i:s" }}</td>
+        <td>
+          {% if task.result.retail_price %}
+            {{ task.result.retail_price }} {{ task.result.currency }}
+            {% if task.result.cache_hit %}<span class="pill pill-idle">cached</span>{% endif %}
+          {% elif task.result.error %}
+            {{ task.result.error }}
+          {% elif task.result.warnings %}
+            {{ task.result.warnings.0 }}
+          {% else %}
+            &mdash;
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pager">{{ total_completed }} completed task{{ total_completed|pluralize }} in total.</div>
+  {% else %}
+  <div class="empty">
+    <strong>Nothing has finished yet.</strong>
+    Completed and failed enrichment tasks land here.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

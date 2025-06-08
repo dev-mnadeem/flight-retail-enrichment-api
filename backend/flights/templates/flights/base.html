@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Flight enrichment{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --ink: #16202c;
+      --muted: #5f6b7a;
+      --line: #dfe4ea;
+      --accent: #1f5fd8;
+      --ok-bg: #e4f4ea; --ok-ink: #17603a;
+      --bad-bg: #fbe6e6; --bad-ink: #8c2020;
+      --warn-bg: #fdf2dc; --warn-ink: #7a5310;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 18px 32px;
+    }
+    header .brand { font-weight: 650; letter-spacing: -0.01em; }
+    nav { margin-top: 10px; display: flex; gap: 20px; }
+    nav a {
+      color: var(--muted); text-decoration: none; font-size: 14px;
+      padding-bottom: 6px; border-bottom: 2px solid transparent;
+    }
+    nav a:hover { color: var(--ink); }
+    nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+    main { padding: 28px 32px 56px; max-width: 1180px; }
+    h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .filters {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+      padding: 16px; border-bottom: 1px solid var(--line); background: var(--surface);
+    }
+    .filters label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+    .filters input, .filters select {
+      font: inherit; font-size: 14px; padding: 7px 9px;
+      border: 1px solid var(--line); border-radius: 6px; background: #fff; min-width: 140px;
+    }
+    .filters button, .filters a.reset {
+      font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px;
+      border: 1px solid transparent; cursor: pointer; text-decoration: none;
+    }
+    .filters button { background: var(--accent); color: #fff; }
+    .filters a.reset { background: transparent; color: var(--muted); border-color: var(--line); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+    th {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); font-weight: 600; background: #fafbfc;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.mono, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px; white-space: nowrap;
+    }
+    .pill {
+      display: inline-block; padding: 2px 9px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+    }
+    .pill-ok { background: var(--ok-bg); color: var(--ok-ink); }
+    .pill-bad { background: var(--bad-bg); color: var(--bad-ink); }
+    .pill-warn { background: var(--warn-bg); color: var(--warn-ink); }
+    .pill-idle { background: #eceff3; color: var(--muted); }
+    .empty { padding: 52px 20px; text-align: center; color: var(--muted); }
+    .empty strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 6px; }
+    .empty code {
+      display: inline-block; margin-top: 12px; padding: 7px 11px;
+      background: #f1f3f6; border-radius: 6px; font-size: 13px;
+    }
+    .pager {
+      display: flex; gap: 14px; align-items: center;
+      padding: 14px 16px; font-size: 14px; color: var(--muted);
+    }
+    .pager a { color: var(--accent); text-decoration: none; }
+    .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Flight data enrichment</div>
+    <nav>
+      <a href="{% url 'flights:flight-list' %}" class="{% block nav_flights %}{% endblock %}">Flights</a>
+      <a href="{% url 'flights:task-list' %}" class="{% block nav_tasks %}{% endblock %}">Task queue</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

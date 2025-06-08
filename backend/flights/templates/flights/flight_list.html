@@ -1,0 +1,105 @@
+{% extends "flights/base.html" %}
+{% block title %}Flights{% endblock %}
+{% block nav_flights %}active{% endblock %}
+
+{% block content %}
+<h1>Flights</h1>
+<p class="subtitle">
+  {{ total_flights }} submitted itinerar{{ total_flights|pluralize:"y,ies" }}, key columns only.
+</p>
+
+<div class="panel">
+  <form class="filters" method="get">
+    <label>Origin
+      <input type="text" name="origin" value="{{ filters.origin }}" placeholder="JFK" maxlength="8">
+    </label>
+    <label>Destination
+      <input type="text" name="destination" value="{{ filters.destination }}" placeholder="ATH" maxlength="8">
+    </label>
+    <label>Cabin
+      <select name="cabin">
+        <option value="">Any</option>
+        {% for value, label in cabins %}
+          <option value="{{ value }}" {% if filters.cabin == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Enriched
+      <select name="enriched">
+        <option value="">Any</option>
+        <option value="yes" {% if filters.enriched == "yes" %}selected{% endif %}>Yes</option>
+        <option value="no" {% if filters.enriched == "no" %}selected{% endif %}>No</option>
+      </select>
+    </label>
+    <button type="submit">Filter</button>
+    {% if has_filters %}<a class="reset" href="{% url 'flights:flight-list' %}">Clear</a>{% endif %}
+  </form>
+
+  {% if flights %}
+  <table>
+    <thead>
+      <tr>
+        <th>Flight ID</th>
+        <th>Route</th>
+        <th>Departs (UTC)</th>
+        <th>Cabin</th>
+        <th style="text-align:right">Retail price</th>
+        <th>Fare review</th>
+        <th>State</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for flight in flights %}
+      <tr>
+        <td class="mono">{{ flight.flight_id }}</td>
+        <td>{{ flight.origin }} &rarr; {{ flight.destination }}</td>
+        <td>{{ flight.departure_time|date:"Y-m-d H:i" }}</td>
+        <td>{{ flight.travel_class }}</td>
+        <td class="num">
+          {% if flight.retail_price %}{{ flight.retail_price }} {{ flight.currency }}{% else %}&mdash;{% endif %}
+        </td>
+        <td>
+          {% if flight.fare_review %}
+            {% if flight.fare_review.rating == "plausible" %}
+              <span class="pill pill-ok">plausible</span>
+            {% elif flight.fare_review.rating == "unknown" %}
+              <span class="pill pill-idle">not scored</span>
+            {% else %}
+              <span class="pill pill-warn">{{ flight.fare_review.rating }}</span>
+            {% endif %}
+          {% else %}&mdash;{% endif %}
+        </td>
+        <td>
+          {% if flight.enriched %}
+            <span class="pill pill-ok">enriched</span>
+          {% else %}
+            <span class="pill pill-idle">pending</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if is_paginated %}
+  <div class="pager">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty">
+    {% if has_filters %}
+      <strong>No flights match those filters.</strong>
+      Try clearing them.
+    {% else %}
+      <strong>No flights yet.</strong>
+      Submit an itinerary to the enrichment API and it will appear here.
+      <code>curl -X POST localhost:8000/enrich-flight -H 'content-type: application/json' -d @sample_flight.json</code>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

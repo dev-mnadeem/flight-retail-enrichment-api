@@ -1,0 +1,14 @@
+.git
+.gitignore
+fly/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+db.sqlite3
+*.sqlite3
+docs/
+*.pdf

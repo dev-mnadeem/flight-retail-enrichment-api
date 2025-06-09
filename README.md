@@ -318,3 +318,17 @@ unavailable on the machine this was last worked on.
   chosen so the pipeline is demonstrable and the tests can assert exact numbers. They are
   not market data.
 
+
+## Verified native enrichment example
+
+![Native itinerary enrichment responses](docs/screenshots/native-api.png)
+
+The [captured responses](docs/native-api.json) show a submitted itinerary and its
+successful stored task result in a disposable SQLite database. Pricing uses the
+bundled fixture and the heuristic reviewer; execution is inline, with no Redis
+broker or paid provider. This verifies the default local path. Hosted pricing
+and multi-process Celery execution remain separate deployment checks.
+
+## Author
+
+[**Muhammad Nadeem**](https://github.com/dev-mnadeem)
